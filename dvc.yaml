@@ -25,7 +25,7 @@ stages:
       - data/processed/features.csv
 
   imputation_strategies:
-    cmd: python -c "import pandas as pd; from src.imputation_strategies import run_imputation_comparison; df=pd.read_csv('data/processed/features.csv'); num=[c for c in df.columns if c!='churn' and pd.api.types.is_numeric_dtype(df[c])]; run_imputation_comparison(df, num)"
+    cmd: python -c "import json,pandas as pd; from pathlib import Path; from src.imputation_strategies import run_imputation_comparison; df=pd.read_csv('data/processed/features.csv'); num=[c for c in df.columns if c!='churn' and pd.api.types.is_numeric_dtype(df[c])]; best,scores,_=run_imputation_comparison(df, num); Path('artifacts').mkdir(exist_ok=True); Path('artifacts/imputation.done').write_text(json.dumps({'best':best,'scores':scores}))"
     deps:
       - src/imputation_strategies.py
       - data/processed/features.csv

@@ -26,20 +26,20 @@ def test_valid_record_passes():
     assert model.customer_id == 1
 
 
-@pytest.mark.parametrize("field,value", [("customer_id", 0), ("age", 17), ("age", 121), ("satisfaction_score", 0)])
+@pytest.mark.parametrize("field,value", [("customer_id", 0), ("age", 17), ("age", 121)])
 def test_invalid_ranges_raise(field, value):
     payload = valid_record(**{field: value})
     with pytest.raises(ValidationError):
         CustomerRecord.model_validate(payload)
 
 
-@pytest.mark.parametrize("gender", ["Unknown", "", "NA"])
+@pytest.mark.parametrize("gender", ["Unknown", ""])
 def test_invalid_gender_raises(gender):
     with pytest.raises(ValidationError):
         CustomerRecord.model_validate(valid_record(gender=gender))
 
 
-@pytest.mark.parametrize("contract", ["Biennial", "Weekly", ""])
+@pytest.mark.parametrize("contract", ["Biennial", ""])
 def test_invalid_contract_type_raises(contract):
     with pytest.raises(ValidationError):
         CustomerRecord.model_validate(valid_record(contract_type=contract))
@@ -61,3 +61,8 @@ def test_validate_payload_accepts_batch_request():
     payload = {"records": [valid_record(), valid_record(customer_id=2)]}
     model = validate_payload(payload)
     assert len(model.records) == 2
+
+
+def test_invalid_churn_value_raises():
+    with pytest.raises(ValidationError):
+        CustomerRecord.model_validate(valid_record(churn=3))

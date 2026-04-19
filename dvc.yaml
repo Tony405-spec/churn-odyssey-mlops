@@ -1,68 +1,123 @@
 stages:
-  generate_synthetic_data:
-    cmd: python src/generate_synthetic_data.py
+  validate:
+    cmd: python src/data_validation.py data/raw/fictitious_company_data.csv
     deps:
-      - src/generate_synthetic_data.py
-    outs:
-      - data/raw/customers.csv
-
-  data_validation:
-    cmd: python scripts/preprocess.py
-    deps:
-      - scripts/preprocess.py
       - src/data_validation.py
-      - data/raw/customers.csv
+      - data/raw/fictitious_company_data.csv
     outs:
-      - data/processed/validated.csv
+      - data/processed/validated_data.parquet
+    metrics:
+      - metrics/validation_report.json
+
+  preprocess:
+    cmd: python src/preprocess.py data/processed/validated_data.parquet
+    deps:
+      - src/preprocess.py
+      - data/processed/validated_data.parquet
+    outs:
+      - data/processed/train.parquet
+      - data/processed/test.parquet
+      - data/processed/val.parquet
+    params:
+      - preprocess.test_size
+      - preprocess.random_state
 
   feature_engineering:
-    cmd: python scripts/feature_engineering.py
+    cmd: python src/feature_engineering.py --input data/processed/train.parquet
     deps:
-      - scripts/feature_engineering.py
       - src/feature_engineering.py
-      - data/processed/validated.csv
+      - data/processed/train.parquet
     outs:
-      - data/processed/features.csv
+      - data/features/train_features.parquet
+      - data/features/test_features.parquet
+      - data/features/feature_columns.json
+    params:
+      - feature_engineering.include_polynomial
+      - feature_engineering.target_encode_smoothing
 
-  imputation_strategies:
-    cmd: python -c "import json,pandas as pd; from pathlib import Path; from src.imputation_strategies import run_imputation_comparison; df=pd.read_csv('data/processed/features.csv'); num=[c for c in df.columns if c!='churn' and pd.api.types.is_numeric_dtype(df[c])]; best,scores,_=run_imputation_comparison(df, num); Path('artifacts').mkdir(exist_ok=True); Path('artifacts/imputation.done').write_text(json.dumps({'best':best,'scores':scores}))"
+  impute:
+    cmd: python src/imputation_strategies.py --best
     deps:
       - src/imputation_strategies.py
-      - data/processed/features.csv
+      - data/features/train_features.parquet
     outs:
-      - artifacts/imputation.done
+      - data/imputed/train_imputed.parquet
+      - data/imputed/test_imputed.parquet
+      - reports/imputation_comparison.png
+    metrics:
+      - metrics/imputation_scores.json
 
-  nested_cv_tuning:
-    cmd: python scripts/train.py
-    deps:
-      - scripts/train.py
-      - src/nested_cv_tuning.py
-      - data/processed/features.csv
-    outs:
-      - artifacts/train_summary.json
-
-  optuna_optimization:
-    cmd: python -c "import json,pandas as pd; from pathlib import Path; from src.optuna_optimization import run_optuna_optimization; df=pd.read_csv('data/processed/features.csv'); X=pd.get_dummies(df.drop(columns=['churn']), columns=['gender','contract_type'], drop_first=True); y=df['churn']; out=run_optuna_optimization(X,y,trials=200); Path('artifacts').mkdir(exist_ok=True); Path('artifacts/optuna.json').write_text(json.dumps(out))"
+  tune:
+    cmd: python src/optuna_optimization.py --trials 200
     deps:
       - src/optuna_optimization.py
-      - data/processed/features.csv
+      - data/imputed/train_imputed.parquet
     outs:
-      - artifacts/optuna.json
+      - models/optuna_study.pkl
+      - reports/optuna_parallel_coord.png
+    params:
+      - tune.n_trials
+      - tune.timeout
 
-  shap_explanations:
-    cmd: python scripts/explain.py
+  train_attention:
+    cmd: python src/pytorch_attention_model.py --epochs 200 --patience 15
     deps:
-      - scripts/explain.py
+      - src/pytorch_attention_model.py
+      - data/imputed/train_imputed.parquet
+    outs:
+      - models/attention_best.pt
+      - models/attention_checkpoints/
+    metrics:
+      - metrics/attention_training_log.json
+    params:
+      - attention.learning_rate
+      - attention.batch_size
+      - attention.focal_gamma
+
+  ensemble:
+    cmd: python src/ensemble_stacking.py
+    deps:
+      - src/ensemble_stacking.py
+      - models/lightgbm_best.pkl
+      - models/xgboost_best.pkl
+      - models/randomforest_best.pkl
+      - models/attention_best.pt
+    outs:
+      - models/ensemble_meta_model.pkl
+      - models/ensemble_weights.json
+    metrics:
+      - metrics/ensemble_performance.json
+
+  evaluate:
+    cmd: python src/evaluate.py --ensemble models/ensemble_meta_model.pkl
+    deps:
+      - src/evaluate.py
+      - data/imputed/test_imputed.parquet
+      - models/ensemble_meta_model.pkl
+    metrics:
+      - metrics/final_test_metrics.json
+    plots:
+      - reports/roc_curve.png
+      - reports/pr_curve.png
+      - reports/confusion_matrix.png
+      - reports/calibration_curve.png
+
+  explain:
+    cmd: python src/shap_explanations.py --model models/ensemble_meta_model.pkl
+    deps:
       - src/shap_explanations.py
-      - data/processed/features.csv
+      - models/ensemble_meta_model.pkl
+      - data/imputed/test_imputed.parquet
     outs:
-      - artifacts/explanations
+      - reports/shap/waterfall_plots/
+      - reports/shap/global_summary.png
+      - reports/shap/shap_values.json
 
-  monitoring:
-    cmd: python scripts/evaluate.py
+  monitor:
+    cmd: python src/drift_detection.py --serve
     deps:
-      - scripts/evaluate.py
-      - src/monitoring.py
-      - artifacts/train_summary.json
+      - src/drift_detection.py
+      - models/ensemble_meta_model.pkl
     outs:
-      - artifacts/evaluation.json
+      - logs/drift_metrics.db
+      - reports/drift_report.html

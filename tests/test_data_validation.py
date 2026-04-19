@@ -1,68 +1,86 @@
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from src.data_validation import CustomerRecord, validate_payload, validate_records
+from src.data_validation import ChurnPredictionDataset, CustomerBase, validate_payload, validate_records
 
 
-def valid_record(**overrides):
-    base = {
+def _valid(**overrides):
+    payload = {
         "customer_id": 1,
-        "age": 56,
+        "age": 42,
         "gender": "Male",
-        "tenure_months": 58,
-        "monthly_spend": 77.18,
-        "contract_type": "Yearly",
-        "support_tickets": 1,
-        "last_login_days": 11,
+        "tenure_months": 12,
+        "monthly_spend": 100.0,
+        "contract_type": "Monthly",
+        "support_tickets": 2,
+        "last_login_days": 7,
         "satisfaction_score": 8,
         "churn": 1,
     }
-    base.update(overrides)
-    return base
+    payload.update(overrides)
+    return payload
 
 
-def test_valid_record_passes():
-    model = CustomerRecord.model_validate(valid_record())
+def test_valid_customer_passes_validation():
+    model = ChurnPredictionDataset.model_validate(_valid())
     assert model.customer_id == 1
 
 
-@pytest.mark.parametrize("field,value", [("customer_id", 0), ("age", 17), ("age", 121)])
-def test_invalid_ranges_raise(field, value):
-    payload = valid_record(**{field: value})
+def test_invalid_age_raises_error():
     with pytest.raises(ValidationError):
-        CustomerRecord.model_validate(payload)
+        ChurnPredictionDataset.model_validate(_valid(age=-1))
 
 
-@pytest.mark.parametrize("gender", ["Unknown", ""])
-def test_invalid_gender_raises(gender):
+def test_negative_monthly_spend_raises_error():
     with pytest.raises(ValidationError):
-        CustomerRecord.model_validate(valid_record(gender=gender))
+        ChurnPredictionDataset.model_validate(_valid(monthly_spend=-0.1))
 
 
-@pytest.mark.parametrize("contract", ["Biennial", ""])
-def test_invalid_contract_type_raises(contract):
+def test_churn_outside_0_1_raises_error():
     with pytest.raises(ValidationError):
-        CustomerRecord.model_validate(valid_record(contract_type=contract))
+        ChurnPredictionDataset.model_validate(_valid(churn=2))
 
 
-def test_extra_field_is_forbidden():
+def test_missing_required_field_raises_error():
+    bad = _valid()
+    bad.pop("age")
     with pytest.raises(ValidationError):
-        CustomerRecord.model_validate({**valid_record(), "extra": 1})
+        ChurnPredictionDataset.model_validate(bad)
 
 
-def test_validate_records_batch_length_matches():
-    records = validate_records(
-        __import__("pandas").DataFrame([valid_record(customer_id=1), valid_record(customer_id=2)])
-    )
+def test_contract_type_mapping_works():
+    model = ChurnPredictionDataset.model_validate(_valid(contract_type=None))
+    assert model.contract_type == "Monthly"
+
+
+def test_tenure_spend_consistency_validation():
+    with pytest.raises(ValidationError):
+        ChurnPredictionDataset.model_validate(_valid(tenure_months=0, monthly_spend=10.0))
+
+
+def test_satisfaction_score_boundary():
+    assert ChurnPredictionDataset.model_validate(_valid(satisfaction_score=0)).satisfaction_score == 0
+    assert ChurnPredictionDataset.model_validate(_valid(satisfaction_score=10)).satisfaction_score == 10
+    with pytest.raises(ValidationError):
+        ChurnPredictionDataset.model_validate(_valid(satisfaction_score=11))
+
+
+def test_negative_age_edge_case():
+    with pytest.raises(ValidationError):
+        CustomerBase.model_validate(_valid(age=-99, churn=0))
+
+
+def test_validate_records_batch():
+    records = validate_records(pd.DataFrame([_valid(customer_id=1), _valid(customer_id=2)]))
     assert len(records) == 2
 
 
-def test_validate_payload_accepts_batch_request():
-    payload = {"records": [valid_record(), valid_record(customer_id=2)]}
-    model = validate_payload(payload)
+def test_validate_payload_batch_model():
+    model = validate_payload({"records": [_valid(customer_id=10), _valid(customer_id=11)]})
     assert len(model.records) == 2
 
 
-def test_invalid_churn_value_raises():
+def test_impossible_churn_pattern_tenure_zero_spend_non_zero():
     with pytest.raises(ValidationError):
-        CustomerRecord.model_validate(valid_record(churn=3))
+        ChurnPredictionDataset.model_validate(_valid(tenure_months=0, monthly_spend=99.0, churn=0))

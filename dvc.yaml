@@ -1,36 +1,68 @@
 stages:
-  preprocess:
+  generate_synthetic_data:
+    cmd: python src/generate_synthetic_data.py
+    deps:
+      - src/generate_synthetic_data.py
+    outs:
+      - data/raw/customers.csv
+
+  data_validation:
     cmd: python scripts/preprocess.py
     deps:
       - scripts/preprocess.py
+      - src/data_validation.py
       - data/raw/customers.csv
     outs:
       - data/processed/validated.csv
+
   feature_engineering:
     cmd: python scripts/feature_engineering.py
     deps:
       - scripts/feature_engineering.py
+      - src/feature_engineering.py
       - data/processed/validated.csv
     outs:
       - data/processed/features.csv
-  train:
+
+  imputation_strategies:
+    cmd: python -c "import pandas as pd; from src.imputation_strategies import run_imputation_comparison; df=pd.read_csv('data/processed/features.csv'); num=[c for c in df.columns if c!='churn' and pd.api.types.is_numeric_dtype(df[c])]; run_imputation_comparison(df, num)"
+    deps:
+      - src/imputation_strategies.py
+      - data/processed/features.csv
+    outs:
+      - artifacts/imputation.done
+
+  nested_cv_tuning:
     cmd: python scripts/train.py
     deps:
       - scripts/train.py
+      - src/nested_cv_tuning.py
       - data/processed/features.csv
     outs:
       - artifacts/train_summary.json
-  evaluate:
-    cmd: python scripts/evaluate.py
+
+  optuna_optimization:
+    cmd: python -c "import json,pandas as pd; from pathlib import Path; from src.optuna_optimization import run_optuna_optimization; df=pd.read_csv('data/processed/features.csv'); X=pd.get_dummies(df.drop(columns=['churn']), columns=['gender','contract_type'], drop_first=True); y=df['churn']; out=run_optuna_optimization(X,y,trials=200); Path('artifacts').mkdir(exist_ok=True); Path('artifacts/optuna.json').write_text(json.dumps(out))"
     deps:
-      - scripts/evaluate.py
-      - artifacts/train_summary.json
+      - src/optuna_optimization.py
+      - data/processed/features.csv
     outs:
-      - artifacts/evaluation.json
-  explain:
+      - artifacts/optuna.json
+
+  shap_explanations:
     cmd: python scripts/explain.py
     deps:
       - scripts/explain.py
+      - src/shap_explanations.py
       - data/processed/features.csv
     outs:
       - artifacts/explanations
+
+  monitoring:
+    cmd: python scripts/evaluate.py
+    deps:
+      - scripts/evaluate.py
+      - src/monitoring.py
+      - artifacts/train_summary.json
+    outs:
+      - artifacts/evaluation.json

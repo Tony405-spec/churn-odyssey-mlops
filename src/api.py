@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -25,7 +26,7 @@ except Exception:  # pragma: no cover
 
 RATE_LIMIT = 1000
 RATE_WINDOW_SECONDS = 60
-RETRAIN_API_KEY = "change-me"
+RETRAIN_API_KEY = os.getenv("RETRAIN_API_KEY", "")
 _request_buckets: dict[str, list[float]] = {}
 _batch_tasks: dict[str, dict[str, Any]] = {}
 _local_cache: dict[str, tuple[float, dict]] = {}

@@ -41,7 +41,9 @@ dvc init || true
 dvc repro --pull --push || dvc repro
 
 # Phase 12: MLflow tracking
-mlflow server --backend-store-uri postgresql://localhost/mlflow --host 0.0.0.0 &
+MLFLOW_BACKEND_URI="${MLFLOW_BACKEND_URI:-postgresql://localhost/mlflow}"
+MLFLOW_HOST="${MLFLOW_HOST:-127.0.0.1}"
+mlflow server --backend-store-uri "${MLFLOW_BACKEND_URI}" --host "${MLFLOW_HOST}" &
 python src/mlflow_tracking.py --log-all
 
 # Phase 13: API server

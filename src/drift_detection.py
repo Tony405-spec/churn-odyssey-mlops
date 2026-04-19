@@ -46,15 +46,21 @@ class DriftDetector:
             severe_features += int(level == "severe")
             history = self.psi_history.setdefault(col, deque(maxlen=3))
             history.append(psi)
+            ref_mean = float(reference_df[col].mean())
+            cur_mean = float(current_df[col].mean())
+            ref_std = float(reference_df[col].std())
+            ref_median = float(reference_df[col].median())
+            cur_above_median = float((current_df[col] > ref_median).mean())
+            ref_above_median = float((reference_df[col] > ref_median).mean())
             metrics[col] = {
                 "ks_statistic": float(ks_stat),
                 "ks_pvalue": float(p_val),
                 "ks_drift": bool(p_val < 0.05),
                 "psi": float(psi),
                 "psi_level": level,
-                "adwin": bool(abs(reference_df[col].mean() - current_df[col].mean()) > 3 * (reference_df[col].std() + 1e-6)),
-                "ddm": bool(abs((current_df[col] > reference_df[col].median()).mean() - (reference_df[col] > reference_df[col].median()).mean()) > 0.2),
-                "page_hinkley": bool((current_df[col].mean() - reference_df[col].mean()) > (reference_df[col].std() + 1e-6)),
+                "adwin": bool(abs(ref_mean - cur_mean) > 3 * (ref_std + 1e-6)),
+                "ddm": bool(abs(cur_above_median - ref_above_median) > 0.2),
+                "page_hinkley": bool((cur_mean - ref_mean) > (ref_std + 1e-6)),
             }
         for col in categorical_features:
             ref_counts = reference_df[col].value_counts().sort_index()

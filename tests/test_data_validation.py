@@ -68,7 +68,7 @@ def test_satisfaction_score_boundary():
 
 def test_negative_age_edge_case():
     with pytest.raises(ValidationError):
-        CustomerBase.model_validate(_valid(age=-99, churn=0))
+        ChurnPredictionDataset.model_validate(_valid(age=-99, churn=0))
 
 
 def test_validate_records_batch():

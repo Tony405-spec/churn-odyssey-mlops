@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BUCKET="${S3_BUCKET:-bucket}"
+BUCKET="${S3_BUCKET:?S3_BUCKET is required}"
 MODEL_NAME="churn-$(date +%Y%m%d)"
 ENDPOINT_NAME="churn-prod"
+IMAGE_URI="${SAGEMAKER_IMAGE_URI:?SAGEMAKER_IMAGE_URI is required}"
+ROLE_ARN="${SAGEMAKER_ROLE_ARN:?SAGEMAKER_ROLE_ARN is required}"
 
 tar -czf model.tar.gz models/ src/
 aws s3 cp model.tar.gz "s3://${BUCKET}/models/churn/model.tar.gz"
 
 aws sagemaker create-model \
   --model-name "${MODEL_NAME}" \
-  --primary-container Image="${SAGEMAKER_IMAGE_URI:-123456789012.dkr.ecr.us-east-1.amazonaws.com/churn:latest}",ModelDataUrl="s3://${BUCKET}/models/churn/model.tar.gz" \
-  --execution-role-arn "${SAGEMAKER_ROLE_ARN:-arn:aws:iam::123456789012:role/SageMakerExecutionRole}"
+  --primary-container Image="${IMAGE_URI}",ModelDataUrl="s3://${BUCKET}/models/churn/model.tar.gz" \
+  --execution-role-arn "${ROLE_ARN}"
 
 aws sagemaker create-endpoint-config \
   --endpoint-config-name "${MODEL_NAME}-config" \

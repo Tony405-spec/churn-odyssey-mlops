@@ -1,0 +1,12 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python scripts/preprocess.py
+  feature_engineering:
+    cmd: python scripts/feature_engineering.py
+  train:
+    cmd: python scripts/train.py
+  evaluate:
+    cmd: python scripts/evaluate.py
+  explain:
+    cmd: python scripts/explain.py

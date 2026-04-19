@@ -1,0 +1,6 @@
+services:
+  api:
+    build: .
+    command: uvicorn churn_odyssey.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"

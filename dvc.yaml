@@ -1,0 +1,36 @@
+stages:
+  preprocess:
+    cmd: python scripts/preprocess.py
+    deps:
+      - scripts/preprocess.py
+      - data/raw/customers.csv
+    outs:
+      - data/processed/validated.csv
+  feature_engineering:
+    cmd: python scripts/feature_engineering.py
+    deps:
+      - scripts/feature_engineering.py
+      - data/processed/validated.csv
+    outs:
+      - data/processed/features.csv
+  train:
+    cmd: python scripts/train.py
+    deps:
+      - scripts/train.py
+      - data/processed/features.csv
+    outs:
+      - artifacts/train_summary.json
+  evaluate:
+    cmd: python scripts/evaluate.py
+    deps:
+      - scripts/evaluate.py
+      - artifacts/train_summary.json
+    outs:
+      - artifacts/evaluation.json
+  explain:
+    cmd: python scripts/explain.py
+    deps:
+      - scripts/explain.py
+      - data/processed/features.csv
+    outs:
+      - artifacts/explanations

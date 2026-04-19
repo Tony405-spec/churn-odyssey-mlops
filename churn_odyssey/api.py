@@ -33,6 +33,10 @@ def predict(payload: BatchPredictionRequest):
     model_input = pd.get_dummies(feats, columns=["gender", "contract_type"], drop_first=True)
     if model is None:
         probs = [0.5] * len(model_input)
+        return {
+            "predictions": probs,
+            "warning": "Model artifact not found; returning fallback probabilities.",
+        }
     else:
         probs = model.predict_proba(model_input)[:, 1].tolist()
     return {"predictions": probs}

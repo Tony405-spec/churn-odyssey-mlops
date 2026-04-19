@@ -14,6 +14,7 @@ def get_imputer(strategy: str):
     if strategy == "knn":
         return KNNImputer(n_neighbors=5)
     if strategy == "mice":
+        # MICE is represented via IterativeImputer with posterior sampling.
         return IterativeImputer(random_state=42, sample_posterior=True, max_iter=15)
     if strategy == "iterativeimputer":
         return IterativeImputer(random_state=42, max_iter=20)

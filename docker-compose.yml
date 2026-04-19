@@ -1,6 +1,39 @@
 services:
   api:
     build: .
-    command: uvicorn churn_odyssey.api:app --host 0.0.0.0 --port 8000
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
+    depends_on:
+      - mlflow
+      - postgres
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.3
+    command: mlflow server --host 0.0.0.0 --port 5000
+    ports:
+      - "5000:5000"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: churn
+      POSTGRES_PASSWORD: churn
+      POSTGRES_DB: churn_odyssey
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"

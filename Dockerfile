@@ -10,7 +10,7 @@ RUN apt-get update \
 RUN pip install --no-cache-dir poetry
 
 COPY pyproject.toml* poetry.lock* /app/
-RUN poetry config virtualenvs.create false && poetry install --no-dev || pip install -r requirements.txt
+RUN poetry config virtualenvs.create false && poetry install --no-dev
 
 COPY src/ /app/src/
 COPY churn_odyssey/ /app/churn_odyssey/

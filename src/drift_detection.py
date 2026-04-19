@@ -65,7 +65,7 @@ class DriftDetector:
         for col in categorical_features:
             ref_counts = reference_df[col].value_counts().sort_index()
             cur_counts = current_df[col].value_counts().reindex(ref_counts.index, fill_value=0)
-            _, p_val = chisquare(f_obs=cur_counts.values + 1e-6, f_exp=ref_counts.values + 1e-6)
+            _, p_val = chisquare(f_obs=cur_counts.values + 1, f_exp=ref_counts.values + 1)
             metrics[col] = {"chi2_pvalue": float(p_val), "chi2_drift": bool(p_val < 0.05)}
 
         return {"metrics": metrics, "severe_feature_count": severe_features}

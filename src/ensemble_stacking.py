@@ -13,6 +13,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
+from sklearn.base import BaseEstimator, ClassifierMixin
 
 from src.pytorch_attention_model import TabularAttentionModel
 
@@ -44,16 +45,32 @@ def _safe_cat():
         return RandomForestClassifier(random_state=42)
 
 
-class TorchAttentionSklearnWrapper:
+class TorchAttentionSklearnWrapper(BaseEstimator, ClassifierMixin):
     def __init__(self) -> None:
         self.model = LogisticRegression(max_iter=500)
+        self.single_class_: int | None = None
 
     def fit(self, X: pd.DataFrame, y: pd.Series):
-        self.model.fit(X, y)
+        y_arr = np.asarray(y)
+        classes = np.unique(y_arr)
+        self.classes_ = classes
+        if len(classes) < 2:
+            self.single_class_ = int(classes[0])
+            return self
+        self.single_class_ = None
+        self.model.fit(X, y_arr)
         return self
 
     def predict_proba(self, X: pd.DataFrame):
+        if self.single_class_ is not None:
+            probs = np.ones((len(X), 1), dtype=float)
+            return probs
         return self.model.predict_proba(X)
+
+    def predict(self, X: pd.DataFrame):
+        if self.single_class_ is not None:
+            return np.full(len(X), self.single_class_)
+        return self.model.predict(X)
 
 
 def create_stacking_ensemble(cv: int = 5) -> StackingClassifier:

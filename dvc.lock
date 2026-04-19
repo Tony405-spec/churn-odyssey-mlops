@@ -1,12 +1,30 @@
-schema: '2.0'
+schema: "2.0"
 stages:
+  validate:
+    cmd: python src/data_validation.py data/raw/fictitious_company_data.csv
+    deps:
+      - path: src/data_validation.py
+        md5: 00000000000000000000000000000001
+      - path: data/raw/fictitious_company_data.csv
+        md5: 00000000000000000000000000000002
+    outs:
+      - path: data/processed/validated_data.parquet
+        md5: 00000000000000000000000000000003
   preprocess:
-    cmd: python scripts/preprocess.py
+    cmd: python src/preprocess.py data/processed/validated_data.parquet
   feature_engineering:
-    cmd: python scripts/feature_engineering.py
-  train:
-    cmd: python scripts/train.py
+    cmd: python src/feature_engineering.py --input data/processed/train.parquet
+  impute:
+    cmd: python src/imputation_strategies.py --best
+  tune:
+    cmd: python src/optuna_optimization.py --trials 200
+  train_attention:
+    cmd: python src/pytorch_attention_model.py --epochs 200 --patience 15
+  ensemble:
+    cmd: python src/ensemble_stacking.py
   evaluate:
-    cmd: python scripts/evaluate.py
+    cmd: python src/evaluate.py --ensemble models/ensemble_meta_model.pkl
   explain:
-    cmd: python scripts/explain.py
+    cmd: python src/shap_explanations.py --model models/ensemble_meta_model.pkl
+  monitor:
+    cmd: python src/drift_detection.py --serve

@@ -1,39 +1,51 @@
 services:
   api:
-    build: .
-    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
+    build:
+      context: .
     ports:
       - "8000:8000"
     depends_on:
+      - redis
       - mlflow
       - postgres
 
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.14.3
-    command: mlflow server --host 0.0.0.0 --port 5000
-    ports:
-      - "5000:5000"
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: churn
-      POSTGRES_PASSWORD: churn
-      POSTGRES_DB: churn_odyssey
-    ports:
-      - "5432:5432"
-
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
     ports:
       - "6379:6379"
 
+  mlflow:
+    image: ghcr.io/mlflow/mlflow
+    command: mlflow server --host 0.0.0.0 --port 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus
     ports:
       - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana
     ports:
       - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:

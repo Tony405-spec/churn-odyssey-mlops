@@ -1,0 +1,11 @@
+{
+  "customer_id": 1,
+  "age": 40,
+  "gender": "Male",
+  "tenure_months": 14,
+  "monthly_spend": 120.5,
+  "contract_type": "Monthly",
+  "support_tickets": 3,
+  "last_login_days": 9,
+  "satisfaction_score": 6
+}

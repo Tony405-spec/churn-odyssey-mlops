@@ -1,0 +1,10 @@
+# .coderabbit.yaml
+reviews:
+  profile: "chill"          # or "assertive" for stricter reviews
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: true                # yes, it writes poems about your bugs 😂
+  review_status: true
+  collapse_walkthrough: false
+
+language: "en-US"
